@@ -57,7 +57,19 @@ back-end of proffy project, made along **Next Level Week** #2 @Rocketseat.
   
 ### Filtering class by subject, day and time.
 - Make a get request to the **/classes** route passing through query params the subject, day and time.
-  
+
+- **Day Guide**
+
+number             |  week_day
+:-------------------------:|:-------------------------:
+0 |  Sunday
+1 |  Monday
+2 |  Tuesday
+3 |  Wednesday
+4 |  Thursday
+5 |  Friday
+6 |  Saturday
+
 #### **INPUT** 
   
 key             |  value
