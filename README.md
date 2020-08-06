@@ -28,7 +28,7 @@ back-end of proffy project, made along **Next Level Week** #2 @Rocketseat.
   or
   npm knex:migrate
 ```
-- Now you have all the tables are built.
+- Now you have all the tables builded.
 - If something goes wrong on the database, delete the database.sqlite file inside src/database.Then just run the knex:migrate again.
 
 ## End points
