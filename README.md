@@ -35,7 +35,7 @@ back-end of proffy project, made along **Next Level Week** #2 @Rocketseat.
 
 ### Creating new class
 
-- Make a post request to the **/classes** route passing through the body those data
+- Make a post request to the **/classes** route passing through the body the data as shown below
 #### **INPUT** 
   
 ```
