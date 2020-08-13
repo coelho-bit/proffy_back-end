@@ -28,9 +28,9 @@ export default class TeachersController {
         const { subject, whatsapp, bio, cost } = request.body;
         const token = request.app.get('token');
 
-        if(!subject || !whatsapp || !bio || !cost) {
-            response.json({message: "Please fill all fields"});
-        } 
+        if (!subject || !whatsapp || !bio || !cost) {
+            response.json({ message: "Please fill all fields" });
+        }
 
         const decodedToken = jwt.decode(token) as TokenData;
 
@@ -47,15 +47,47 @@ export default class TeachersController {
 
             await trx.commit();
 
-            response.status(201).json({message: "Succesfully created"});
-        } catch(e) {
+            response.status(201).json({ message: "Succesfully created" });
+        } catch (e) {
             await trx.rollback();
             console.log(e);
-            response.status(400).json({message: "Something went wrong"});
+            response.status(400).json({ message: "Something went wrong" });
         }
 
     }
- 
+    async update(request: Request, response: Response) {
+        const { subject, whatsapp, bio, cost } = request.body;
+        const token = request.app.get('token');
+
+        const decodedToken = jwt.decode(token) as TokenData;
+
+
+        if (!subject && !whatsapp && !bio && !cost) {
+            response.json({ message: "You have to update at least one property" });
+        }
+
+        const trx = await db.transaction();
+
+        try {
+            await trx('teachers')
+                .where({ id: decodedToken.id })
+                .update({
+                    subject,
+                    whatsapp,
+                    bio,
+                    cost,
+                });
+            
+            await trx.commit();
+            response.json({ message: "Updated" });
+        } catch(e) {
+            await trx.rollback();
+            console.log(e);
+            response.json({ message: "Something went wrong." });
+        }
+
+    }
+
     async filter(request: Request, response: Response) {
         const filters = request.query;
 
@@ -67,12 +99,12 @@ export default class TeachersController {
             return response.status(400).json({
                 error: "Missing filters to search classes"
             });
-        } 
+        }
 
         const timeInMinutes = convertHourToMinutes(time);
-        
+
         const classes = await db('classes')
-            .whereExists(function() {
+            .whereExists(function () {
                 this.select('class_schedule.*')
                     .from('class_schedule')
                     .whereRaw('`class_schedule`.`class_id` = `classes`.`id`')
@@ -83,8 +115,7 @@ export default class TeachersController {
             .where('classes.subject', '=', subject)
             .join('users', 'classes.user_id', '=', 'users.id')
             .select(['classes.*', 'users.*']);
-        
+
         response.json(classes);
     }
 }
-   

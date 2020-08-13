@@ -14,6 +14,7 @@ routes.post('/users', userController.create);
 routes.post('/login', userController.authenticate);
 
 routes.post('/teachers', Middleware.authorize, teacherController.create);
+routes.put('/teachers', Middleware.authorize, teacherController.update);
 routes.get('/teachers', teacherController.index);
 
 routes.get('/connections', Middleware.authorize, connectionsController.index);
