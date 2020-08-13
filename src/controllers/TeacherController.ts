@@ -1,6 +1,7 @@
 import convertHourToMinutes from "../utils/convertHourToMinutes";
 import { Request, Response } from 'express';
 import db from "../database/connection";
+import jwt, { decode } from 'jsonwebtoken';
 
 interface ScheduleItem {
     week_day: number;
@@ -8,14 +9,53 @@ interface ScheduleItem {
     to: string;
 }
 
+interface TokenData {
+    id: Number;
+    name: string;
+    email: string;
+    isTeacher: Number;
+}
+
 export default class TeachersController {
 
     async index(request: Request, response: Response) {
         const teachers = await db.select('*').table('teachers');
-
         response.send(teachers);
     }
 
+    async create(request: Request, response: Response) {
+
+        const { subject, whatsapp, bio, cost } = request.body;
+        const token = request.app.get('token');
+
+        if(!subject || !whatsapp || !bio || !cost) {
+            response.json({message: "Please fill all fields"});
+        } 
+
+        const decodedToken = jwt.decode(token) as TokenData;
+
+        const trx = await db.transaction();
+
+        try {
+            await trx('teachers').insert({
+                subject,
+                whatsapp,
+                bio,
+                cost,
+                user_id: decodedToken.id,
+            });
+
+            await trx.commit();
+
+            response.status(201).json({message: "Succesfully created"});
+        } catch(e) {
+            await trx.rollback();
+            console.log(e);
+            response.status(400).json({message: "Something went wrong"});
+        }
+
+    }
+ 
     async filter(request: Request, response: Response) {
         const filters = request.query;
 

@@ -57,7 +57,7 @@ export default class UserController {
 
         const user: User = dbresult[0];
 
-        if (user.name == null) {
+        if (!user) {
             response.status(400).json({ error: 'Please provide an existing email' });
         } else {
             bcrypt.compare(password, user.password, (err, result) => {
