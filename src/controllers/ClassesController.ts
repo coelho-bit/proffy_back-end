@@ -16,7 +16,7 @@ export default class ClassesController {
         const subject = filters.subject as string;
         const week_day = filters.week_day as string;
         const time = filters.time as string;
-        
+
         if (!filters.subject || !filters.week_day || !filters.time) {
             return response.status(400).json({
                 error: "Missing filters to search classes"
