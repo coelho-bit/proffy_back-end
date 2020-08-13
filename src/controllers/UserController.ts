@@ -1,16 +1,18 @@
 import db from "../database/connection";
 import { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
-
+import jwt from 'jsonwebtoken';
+import SALT_KEY from '../../config';
 
 export default class UserController {
-
+    
     async index(request: Request, response: Response) {
         const users = await db.select('*').table('users');
         response.send(users);
     }
 
     async create(request: Request, response: Response) {
+        
         const { name, email, password } = request.body;
 
         const salt = await bcrypt.genSalt(10);
@@ -18,7 +20,7 @@ export default class UserController {
 
         const trx = await db.transaction();
 
-        try {   
+        try {
             await trx('users').insert({
                 name,
                 email,
@@ -36,24 +38,47 @@ export default class UserController {
     }
 
     async authenticate(request: Request, response: Response) {
+
+        interface User {
+            id: Number,
+            name: string, 
+            email: string,
+            password: string,
+            is_teacher: Number
+        }
+
         const { email, password } = request.body;
-    
-        if(email === "" || email == null || password === "" || password == null) {
+
+        if (email === "" || email == null || password === "" || password == null) {
             response.status(400).json({ error: "You must provide an email and password." });
         }
-        
-        const user = await db.select('email', 'password').table('users').where('email', email);
-        if (user.length == 0) {
-            response.status(400).json({error: 'Please provide an existing email'});
+
+        const dbresult = await db.select('*').table('users').where('email', email);
+
+        const user: User = dbresult[0];
+
+        if (user.name == null) {
+            response.status(400).json({ error: 'Please provide an existing email' });
         } else {
-            bcrypt.compare(password, user[0].password, (err, result) => {
-                if(result == true) {
-                    response.json({message: 'Succesfully logged in!'});
+            bcrypt.compare(password, user.password, (err, result) => {
+                if (result == true) {
+                    const tokenData = {
+                        id: user.id,
+                        name: user.name,
+                        email: user.email,
+                        isTeacher: user.is_teacher
+                    }
+                    const token = jwt.sign(tokenData, SALT_KEY, {
+                        expiresIn: 300
+                    });
+                    response.send({ 
+                        message: 'Succesfully logged in!',
+                        token: token 
+                    });
                 } else {
-                    response.json({message: 'Incorrect password.'});
+                    response.json({ message: 'Incorrect password.'});
                 }
             });
         }
-
     }
 }
