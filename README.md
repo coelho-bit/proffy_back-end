@@ -1,8 +1,10 @@
-# BACK-END
+# BACK-END **BEING MODIFIED**
 
 ![logo](https://user-images.githubusercontent.com/61102108/89577781-8f5f9c80-d807-11ea-8607-fc1f8500ef69.png)
 
 back-end of proffy project, made along **Next Level Week** #2 @Rocketseat.
+
+## **This code is being modified, this documentation is outdated. Sorry for the trouble :(**
 
 ## Technologies 
 
@@ -122,6 +124,6 @@ time |  9:00
     "total": 259
   }
 ```
-    
+ 
     
     
