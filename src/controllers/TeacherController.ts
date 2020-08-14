@@ -4,7 +4,7 @@ import db from "../database/connection";
 import jwt, { decode } from 'jsonwebtoken';
 
 interface ScheduleItem {
-    week_day: number;
+    week_day: Number;
     from: string;
     to: string;
 }
@@ -16,34 +16,91 @@ interface TokenData {
     isTeacher: Number;
 }
 
+interface Teacher {
+    id: Number,
+    subject: string,
+    bio: string,
+    cost: Number,
+    whatsapp: string,
+    user_id: Number,
+    name: Text,
+    schedules: { week_day: number, from: number, to: number }[]
+}
+
 export default class TeachersController {
 
     async index(request: Request, response: Response) {
-        const teachers = await db.select('*').table('teachers');
-        response.send(teachers);
+
+        let teachers = await db('teachers')
+            .join('users', 'users.id', '=', 'teachers.user_id')
+            .select('teachers.*', 'users.name')
+
+        var mappedTeachers: Teacher[] = [];
+
+        teachers.forEach((teacher: Teacher) => {
+            db('teacher_schedule')
+                .select('week_day', 'from', 'to')
+                .where('teacher_schedule.teacher_id', '=', `${teacher.id}`)
+                .then((schedules: { week_day: number, from: number, to: number }[]) => {
+
+                    teacher.schedules = schedules;
+
+                    mappedTeachers.push(teacher);
+                    if (mappedTeachers.length >= teachers.length) {
+                        response.json(mappedTeachers);
+                    }
+                });
+        })
+
+        
     }
 
     async create(request: Request, response: Response) {
 
-        const { subject, whatsapp, bio, cost } = request.body;
+        const { subject, whatsapp, bio, cost, schedule } = request.body;
         const token = request.app.get('token');
 
-        if (!subject || !whatsapp || !bio || !cost) {
-            response.json({ message: "Please fill all fields" });
+        const decodedToken = jwt.decode(token) as TokenData;
+
+        if (decodedToken.isTeacher === 1) {
+            response.json({ message: "This user is already a teacher." });
         }
 
-        const decodedToken = jwt.decode(token) as TokenData;
+        if (!subject || !whatsapp || !bio || !cost || !schedule) {
+            response.json({ message: "Please fill all fields" });
+        }
 
         const trx = await db.transaction();
 
         try {
-            await trx('teachers').insert({
+            const insertedTeachersIds = await trx('teachers').insert({
                 subject,
                 whatsapp,
                 bio,
                 cost,
                 user_id: decodedToken.id,
             });
+
+            const teacher_id = insertedTeachersIds[0];
+
+            const classSchedule = schedule.map((scheduleItem: ScheduleItem) => {
+                return {
+                    teacher_id,
+                    week_day: scheduleItem.week_day,
+                    from: convertHourToMinutes(scheduleItem.from),
+                    to: convertHourToMinutes(scheduleItem.to),
+                }
+            });
+
+            console.log(classSchedule);
+
+            await trx('teacher_schedule').insert(classSchedule);
+
+            await trx('users')
+                .where({ id: decodedToken.id })
+                .update({
+                    is_teacher: 1,
+                });
 
             await trx.commit();
 
@@ -77,10 +134,10 @@ export default class TeachersController {
                     bio,
                     cost,
                 });
-            
+
             await trx.commit();
             response.json({ message: "Updated" });
-        } catch(e) {
+        } catch (e) {
             await trx.rollback();
             console.log(e);
             response.json({ message: "Something went wrong." });
