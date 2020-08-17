@@ -2,6 +2,7 @@ import convertHourToMinutes from "../utils/convertHourToMinutes";
 import { Request, Response } from 'express';
 import db from "../database/connection";
 import jwt, { decode } from 'jsonwebtoken';
+import SALT_KEY from "../../config";
 
 interface ScheduleItem {
     week_day: Number;
@@ -33,7 +34,7 @@ export default class TeachersController {
 
         let teachers = await db('teachers')
             .join('users', 'users.id', '=', 'teachers.user_id')
-            .select('teachers.*', 'users.name')
+            .select('teachers.*', 'users.name', 'users.avatar')
 
         var mappedTeachers: Teacher[] = [];
 
@@ -61,65 +62,70 @@ export default class TeachersController {
         const token = request.app.get('token');
 
         const decodedToken = jwt.decode(token) as TokenData;
-
+        console.log(decodedToken.isTeacher);
         if (decodedToken.isTeacher === 1) {
-            response.json({ message: "This user is already a teacher." });
-        }
+            response.json({ message: "This user already is a teacher" });
+        } else {
+            const trx = await db.transaction();
 
-        if (!subject || !whatsapp || !bio || !cost || !schedule) {
-            response.json({ message: "Please fill all fields" });
-        }
-
-        const trx = await db.transaction();
-
-        try {
-            const insertedTeachersIds = await trx('teachers').insert({
-                subject,
-                whatsapp,
-                bio,
-                cost,
-                user_id: decodedToken.id,
-            });
-
-            const teacher_id = insertedTeachersIds[0];
-
-            const classSchedule = schedule.map((scheduleItem: ScheduleItem) => {
-                return {
-                    teacher_id,
-                    week_day: scheduleItem.week_day,
-                    from: convertHourToMinutes(scheduleItem.from),
-                    to: convertHourToMinutes(scheduleItem.to),
-                }
-            });
-
-            console.log(classSchedule);
-
-            await trx('teacher_schedule').insert(classSchedule);
-
-            await trx('users')
-                .where({ id: decodedToken.id })
-                .update({
-                    is_teacher: 1,
+            try {
+                const insertedTeachersIds = await trx('teachers').insert({
+                    subject,
+                    whatsapp,
+                    bio,
+                    cost,
+                    user_id: decodedToken.id,
                 });
 
-            await trx.commit();
+                const teacher_id = insertedTeachersIds[0];
 
-            response.status(201).json({ message: "Succesfully created" });
-        } catch (e) {
-            await trx.rollback();
-            console.log(e);
-            response.status(400).json({ message: "Something went wrong" });
+                const classSchedule = schedule.map((scheduleItem: ScheduleItem) => {
+                    return {
+                        teacher_id,
+                        week_day: scheduleItem.week_day,
+                        from: convertHourToMinutes(scheduleItem.from),
+                        to: convertHourToMinutes(scheduleItem.to),
+                    }
+                });
+
+                await trx('teacher_schedule').insert(classSchedule);
+
+                await trx('users')
+                    .where({ id: decodedToken.id })
+                    .update({
+                        is_teacher: 1,
+                    });
+            
+                await trx.commit();
+                
+                const tokenData = {
+                    id: decodedToken.id,
+                    name: decodedToken.name,
+                    email: decodedToken.email,
+                    isTeacher: 1
+                }
+
+                const token = jwt.sign(tokenData, SALT_KEY, {
+                    expiresIn: 300
+                });
+
+                response.status(201).json({ message: "Succesfully created", newToken: token});
+            } catch (e) {
+                await trx.rollback();
+                console.log(e);
+                response.status(400).json({ message: "Something went wrong" });
+            }
         }
-
     }
+
     async update(request: Request, response: Response) {
-        const { subject, whatsapp, bio, cost, schedule } = request.body;
+        const { subject, whatsapp, bio, cost, schedule, avatar } = request.body;
         const token = request.app.get('token');
 
         const decodedToken = jwt.decode(token) as TokenData;
 
 
-        if (!subject && !whatsapp && !bio && !cost && !schedule) {
+        if (!subject && !whatsapp && !bio && !cost && !schedule && !avatar) {
             response.json({ message: "You have to update at least one property" });
         }
 
@@ -133,6 +139,12 @@ export default class TeachersController {
                     whatsapp,
                     bio,
                     cost,
+                });
+
+            await trx('users')
+                .where({ id: decodedToken.id })
+                .update({
+                    avatar,
                 });
 
             await trx('teacher_schedule').delete().where('teacher_id', '=', `${decodedToken.id}`);
