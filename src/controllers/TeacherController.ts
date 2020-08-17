@@ -52,7 +52,7 @@ export default class TeachersController {
                 });
         })
 
-        
+
     }
 
     async create(request: Request, response: Response) {
@@ -113,13 +113,13 @@ export default class TeachersController {
 
     }
     async update(request: Request, response: Response) {
-        const { subject, whatsapp, bio, cost } = request.body;
+        const { subject, whatsapp, bio, cost, schedule } = request.body;
         const token = request.app.get('token');
 
         const decodedToken = jwt.decode(token) as TokenData;
 
 
-        if (!subject && !whatsapp && !bio && !cost) {
+        if (!subject && !whatsapp && !bio && !cost && !schedule) {
             response.json({ message: "You have to update at least one property" });
         }
 
@@ -135,8 +135,22 @@ export default class TeachersController {
                     cost,
                 });
 
+            await trx('teacher_schedule').delete().where('teacher_id', '=', `${decodedToken.id}`);
+
+            const classSchedule = schedule.map((scheduleItem: ScheduleItem) => {
+                return {
+                    teacher_id: decodedToken.id,
+                    week_day: scheduleItem.week_day,
+                    from: convertHourToMinutes(scheduleItem.from),
+                    to: convertHourToMinutes(scheduleItem.to),
+                }
+            });
+
+            await trx('teacher_schedule').insert(classSchedule);
+
             await trx.commit();
             response.json({ message: "Updated" });
+
         } catch (e) {
             await trx.rollback();
             console.log(e);
